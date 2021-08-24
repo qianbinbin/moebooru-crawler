@@ -1,67 +1,83 @@
-#!/bin/bash
+#!/usr/bin/env sh
 
-NUM=0
+NUM=
 
+USAGE=$(
+  cat <<-END
+Usage: moebooru-crawler URL [ -n NUM, --num=NUM ]
 
-################################################################################
-# PARSE ARGS
+  -n NUM, --num=NUM         print NUM links of images,
+                            or print all if NUM is '0'
+END
+)
 
-usage() {
-  echo "Usage: moebooru-crawler URL [ -n | --num NUM ]"
+error() { echo "$@" >&2; }
+
+_exit() {
+  error "$USAGE"
   exit 2
 }
 
-PARSED_ARGUMENTS=$(getopt -a -n moebooru-crawler -o n: --long num: -- "$@")
-
-VALID_ARGUMENTS=$?
-[ "$VALID_ARGUMENTS" != 0 ] && usage
-
-eval set -- "$PARSED_ARGUMENTS"
-while :; do
+while [ $# -gt 0 ]; do
   case "$1" in
-    -n | --num)        NUM="$2"         ; shift 2 ;;
-    --) shift; break ;;
+  -n | --num)
+    [ -n "$2" ] || _exit
+    NUM="$2"
+    shift 2
+    ;;
+  -n=* | --num=*)
+    NUM="${1#*=}"
+    shift
+    ;;
+  -*)
+    _exit
+    ;;
+  *)
+    [ -z "$URL" ] || _exit
+    URL="$1"
+    shift
+    ;;
   esac
 done
 
-URL="$1"
-[ -z "$URL" ] && usage
-
-
-################################################################################
-# FETCH LINKS
+if [ -n "$NUM" ]; then
+  [ "$NUM" -ge 0 ] 2>/dev/null || _exit
+fi
+[ -n "$URL" ] || _exit
 
 get_links() {
-  local content
   content=$(curl -fsSL "$1")
-  echo "$content" | grep -P -o 'file_url=".*?"' | grep -o 'http[^"]*'
+  echo "$content" | grep -o 'file_url="[^"]*' | grep -o 'http[^"]*'
 }
 
-IFS="?"; read -ra PARTS <<< "$URL"; unset IFS
-path=${PARTS[0]}
-path+=".xml"
-query=${PARTS[1]}
+if echo "$URL" | grep -qs '?'; then
+  path=${URL%%\?*}.xml
+  query=${URL#*\?}
+else
+  path="$URL.xml"
+  query=
+fi
 
 links=
 
-if [ "$NUM" -le 0 ]; then
+if [ -z "$NUM" ]; then
   url="$path"
-  [ -n "$query" ] && url+="?$query"
+  [ -n "$query" ] && url="$url?$query"
   links=$(get_links "$url")
 else
-  query=$(sed "s/&\?page=[0-9]*//g" <<< "$query")
-  [ -n "$query" ] && query+="&"
+  query=$(echo "$query" | sed "s/&\?page=[0-9]*//g")
+  [ -n "$query" ] && query="$query&"
   page=1
-  while [ "$(wc -w <<< "$links")" -lt "$NUM" ]; do
+  while [ "$NUM" -eq 0 ] || [ "$(echo "$links" | wc -w)" -lt "$NUM" ]; do
     p="page=$page"
     url="$path?$query$p"
-    new_links=$(get_links "$url")
-    [ "$(wc -w <<< "$new_links")" -eq 0 ] && break
-    links+=" $new_links"
-    ((page+=1))
+    _links=$(get_links "$url")
+    [ "$(echo "$_links" | wc -w)" -eq 0 ] && break
+    links="$links $_links"
+    : $((page = page + 1))
   done
-  links=$(xargs -n 1 <<< "$links")
-  links=$(head -n "$NUM" <<< "$links")
+  links=$(echo "$links" | xargs -n 1)
+  [ "$NUM" -eq 0 ] || links=$(echo "$links" | head -n "$NUM")
 fi
 
 echo "$links"
