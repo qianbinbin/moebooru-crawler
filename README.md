@@ -1,44 +1,38 @@
 ## moebooru-crawler
 
-GNU Bash script to download images from moebooru-based sites, like yande.re and konachan.com .
+Retrieve links of images from moebooru-based sites, like yande.re and konachan.com .
 
 ## Usage
 
 ```
-Usage: moebooru-crawler URL [ -d | --dir DIR ]
-                            [ -n | --num NUM ]
-                            [ -u | --urls-only ]
-                            [ -p | --max-procs PROCS ]
+Usage: moebooru-crawler URL [ -n NUM, --num=NUM ]
+
+  -n NUM, --num=NUM         print NUM links of images,
+                            or print all if NUM is '0'
 ```
 
-Feed the crawler a interesting URL, then it'll start downloading:
+Feed the crawler a URL to retrieve links:
 
 ```sh
-$ ./moebooru-crawler.sh "https://yande.re/post?tags=coffee-kizoku+order%3Ascore"
+$ moebooru-crawler.sh "https://yande.re/post?tags=coffee-kizoku+order%3Ascore"
 ```
 
-Or if you just want URLs of images instead of downloading them, use `-u`:
+All the links will be printed to stdout. Or you can redirect to a file:
 
 ```sh
-$ ./moebooru-crawler.sh "https://yande.re/post?tags=coffee-kizoku+order%3Ascore" -u >>downloads.txt
+$ moebooru-crawler.sh "https://yande.re/post?tags=coffee-kizoku+order%3Ascore" >>links.txt
 ```
 
-Then you can use aria2c or any tools you like to do downloads.
+Then use aria2c or any tools you like to do downloads.
 
-To get more images, use `-n` to limit the number (only when the URL has more than one page, note that the crawler will start from first page):
+Use `-n NUM` to print NUM links (only when the URL has more than one page, note that the crawler will start from first page):
 
 ```sh
-$ ./moebooru-crawler.sh "https://yande.re/post?page=2&tags=coffee-kizoku" -n 100  # "page=2" will be ignored
+$ moebooru-crawler.sh "https://yande.re/post?page=2&tags=coffee-kizoku" -n 100  # "page=2" will be ignored
 ```
 
-Or use a large number to get all pages:
+Use `-n 0` to get all links:
 
 ```sh
-$ ./moebooru-crawler.sh "https://yande.re/post?tags=coffee-kizoku" -n 10000
-```
-
-Use `-p` to specify max curl processes when downloading images (default: 8):
-
-```sh
-$ ./moebooru-crawler.sh "https://yande.re/post?tags=coffee-kizoku+order%3Ascore" -p 16
+$ moebooru-crawler.sh "https://yande.re/post?tags=coffee-kizoku" -n 0
 ```
